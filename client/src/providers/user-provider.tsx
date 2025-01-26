@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useState, useEffect, type ReactNode, type FormEvent} from "react";
+import {createContext, useContext, useState, useEffect, type ReactNode, type FormEvent} from "react";
 
 interface UserContextType {
   username: string | null;

@@ -1,5 +1,5 @@
-import {cn} from "~/lib/util"
-import {useUser} from "~/providers/user-provider"
+import {cn} from "../lib/util"
+import {useUser} from "../providers/user-provider"
 
 export function Message({message}: {message: Message}) {
   const {username} = useUser()

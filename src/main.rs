@@ -18,6 +18,11 @@ struct MessageIn {
     text: String,
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct TypingIn {
+    user: String,
+    room: String,
+}
 #[derive(serde::Serialize)]
 struct Messages {
     messages: Vec<state::Message>,
@@ -27,19 +32,45 @@ async fn on_connect(socket: SocketRef) {
     info!("socket connected: {}", socket.id);
 
     socket.on(
+        "is-typing",
+        |socket: SocketRef, Data::<TypingIn>(data), state: State<state::GlobalAppState>| async move {
+            info!("User {} is typing", data.user);
+            state.insert_typing_user(&data.room, data.user).await;
+            let response = state.get_typing_users(&data.room).await;
+            info!("Users typing: {:?}", response);
+
+            // Broadcast the updated typing list to all users in the room
+            let _ = socket.emit("typing", &response);
+        },
+    );
+
+    socket.on(
+        "stop-typing",
+        |socket: SocketRef, Data::<TypingIn>(data), state: State<state::GlobalAppState>| async move {
+            info!("User {} stopped typing", data.user);
+            state.remove_typing_user(&data.room, data.user).await;
+            let response = state.get_typing_users(&data.room).await;
+            info!("Users typing: {:?}", response);
+
+            // Broadcast the updated typing list to all users in the room
+            let _ = socket.emit("stopped-typing", &response);
+        },
+    );
+
+    socket.on(
         "join",
-        |socket: SocketRef, Data::<String>(room), store: State<state::MessageStore>| async move {
+        |socket: SocketRef, Data::<String>(room), store: State<state::GlobalAppState>| async move {
             info!("Received join: {:?}", room);
             socket.leave_all();
             socket.join(room.clone());
-            let messages = store.get(&room).await.into();
+            let messages = store.get_messages(&room).await.into();
             let _ = socket.emit("messages", &Messages { messages });
         },
     );
 
     socket.on(
         "message",
-        |socket: SocketRef, Data::<MessageIn>(data), store: State<state::MessageStore>| async move {
+        |socket: SocketRef, Data::<MessageIn>(data), store: State<state::GlobalAppState>| async move {
             info!("Received message: {:?}", data);
 
             let response = state::Message {
@@ -48,11 +79,12 @@ async fn on_connect(socket: SocketRef) {
                 date: chrono::Utc::now(),
             };
 
-            store.insert(&data.room, response.clone()).await;
+            store.insert_message(&data.room, response.clone()).await;
 
-            let _ = socket.within(data.room).emit("message", &response).await;
+            // Broadcast the message to all users in the room
+            let _ = socket.emit("message", &response);
         },
-    )
+    );
 }
 
 async fn handler(axum::extract::State(io): axum::extract::State<SocketIo>) {
@@ -64,7 +96,7 @@ async fn handler(axum::extract::State(io): axum::extract::State<SocketIo>) {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::subscriber::set_global_default(FmtSubscriber::default())?;
 
-    let messages = state::MessageStore::default();
+    let messages = state::GlobalAppState::default();
 
     let (layer, io) = SocketIo::builder().with_state(messages).build_layer();
 

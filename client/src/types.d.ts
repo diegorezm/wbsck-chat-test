@@ -22,3 +22,8 @@ type ClientToServerEvents = {
   join: (room: string) => void;
   message: (message: Message) => void;
 }
+
+type Typing = {
+  user: string;
+  room: string;
+}
