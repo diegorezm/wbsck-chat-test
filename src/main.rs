@@ -40,7 +40,9 @@ async fn on_connect(socket: SocketRef) {
             info!("Users typing: {:?}", response);
 
             // Broadcast the updated typing list to all users in the room
-            let _ = socket.emit("typing", &response);
+            if let Err(e) = socket.within(data.room).emit("typing", &response).await {
+                eprintln!("ERROR ON EVENT 'is-typing'\n{}", e);
+            }
         },
     );
 
@@ -53,7 +55,9 @@ async fn on_connect(socket: SocketRef) {
             info!("Users typing: {:?}", response);
 
             // Broadcast the updated typing list to all users in the room
-            let _ = socket.emit("stopped-typing", &response);
+            if let Err(e) = socket.within(data.room).emit("stopped-typing", &response).await {
+                eprintln!("ERROR ON EVENT 'stop-typing'\n{}", e);
+            }
         },
     );
 
@@ -64,7 +68,9 @@ async fn on_connect(socket: SocketRef) {
             socket.leave_all();
             socket.join(room.clone());
             let messages = store.get_messages(&room).await.into();
-            let _ = socket.emit("messages", &Messages { messages });
+            if let Err(e) = socket.emit("messages", &Messages { messages }) {
+                eprintln!("ERROR ON EVENT 'join'\n{}", e);
+            }
         },
     );
 
@@ -73,16 +79,19 @@ async fn on_connect(socket: SocketRef) {
         |socket: SocketRef, Data::<MessageIn>(data), store: State<state::GlobalAppState>| async move {
             info!("Received message: {:?}", data);
 
-            let response = state::Message {
+            let request = state::Message {
                 text: data.text,
                 user: data.user,
                 date: chrono::Utc::now(),
             };
 
-            store.insert_message(&data.room, response.clone()).await;
+            store.insert_message(&data.room, request.clone()).await;
+            let messages = store.get_messages(&data.room).await.into();
 
             // Broadcast the message to all users in the room
-            let _ = socket.emit("message", &response);
+            if let Err(e) = socket.within(data.room).emit("messages", &Messages { messages}).await {
+                eprintln!("ERROR ON EVENT 'message'\n{}", e);
+            }
         },
     );
 }

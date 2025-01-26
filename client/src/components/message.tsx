@@ -3,7 +3,9 @@ import {useUser} from "../providers/user-provider"
 
 export function Message({message}: {message: Message}) {
   const {username} = useUser()
+
   const date = new Date(message.date)
+
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "numeric",
@@ -11,6 +13,7 @@ export function Message({message}: {message: Message}) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+
   return (
     <div className="flex items-start space-x-3">
       <div className="avatar placeholder">

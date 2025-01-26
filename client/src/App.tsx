@@ -66,37 +66,26 @@ export default function App() {
   };
 
   useEffect(() => {
-
-    const handleTyping = (data: string[]) => {
-      console.log("Users typing:", data);
-      setUsersTyping(data); // Update the list of users typing
-    };
-
-    const handleStoppedTyping = (data: string[]) => {
-      console.log("Users stopped typing:", data);
-      setUsersTyping(data); // Update the list of users typing
-    };
-
-
-    socket.on("typing", handleTyping);
-    socket.on("stopped-typing", handleStoppedTyping);
-
-    // Cleanup event listeners
+    socket.emit("join", currentRoom);
+    socket.on("messages", (obj: {messages: Message[]}) => {
+      console.log(obj.messages)
+      setMessages(obj.messages);
+    });
+    socket.on("typing", (data: string[]) => {
+      setUsersTyping(data)
+    });
+    socket.on("stopped-typing", (data: string[]) => {
+      setUsersTyping(data);
+    });
     return () => {
+      socket.off("messages");
       socket.off("typing");
       socket.off("stopped-typing");
     };
-  }, [socket, usersTyping]);
-
+  }, []);
   useEffect(() => {
-    socket.emit("join", currentRoom);
-    socket.on("message", (message: any) => {
-      setMessages((prevMessages) => [...prevMessages, message]);
-    });
-    return () => {
-      socket.off("message");
-    };
-  }, [socket, currentRoom]);
+    socket.emit("join", currentRoom)
+  }, [currentRoom])
 
   useEffect(() => {
     scrollToLastMessage();
